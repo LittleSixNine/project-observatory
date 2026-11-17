@@ -1,39 +1,51 @@
-# 每日自动活动日志
+# Project Observatory · 个人开源项目观测
 
-这是公开透明的 GitHub Actions 自动化实验。日志只代表自动任务运行，不代表实际项目开发成果。
+每天归档 LittleSixNine 的公开项目数据，观察项目关注度、版本发布和软件下载量的长期变化。每日快照是自动观测记录，不代表当天发生了代码开发。
 
-## 工作原理
+## 最新快照
 
-- 主任务每天北京时间（Asia/Shanghai，UTC+8）00:15 执行；04:35、20:35 再检查，补偿同一天的失败或漏调度。Workflow 中 cron 使用 UTC。
-- 当天首次成功运行随机创建 1～5 次提交，每次向 `activity.log` 追加一条真实运行记录，整批推送到默认分支 `main`。同日后续检查或手动重试直接跳过。
-- 同一工作流串行运行，最多运行 5 分钟；没有 push 触发器，不会递归。每次运行只尝试一次推送，失败由下一次定时检查或手动运行补偿。
-- 提交使用执行时真实时间和北京时间偏移，不修改作者日期，不补填过去日期。失败批次如果没有推送，下一次从远端重新开始。
-- 作者为 `LittleSixNine`，使用 `31497863+LittleSixNine@users.noreply.github.com` 隐私邮箱；运行仅使用内置 `GITHUB_TOKEN`，只声明 `contents: write`，不需要个人 Token 或额外服务。
+<!-- snapshot:start -->
+部署后由工作流生成首份真实快照。
+<!-- snapshot:end -->
+
+## 观测范围与口径
+
+固定观测 FrameMatter、PhotoTrail、FilmLog、Pawzz-video-downloader、photocut 五个公开项目，排除观测仓库自身及所有私有项目。新增观测对象需修改 `scripts/activity.py` 中的 `PROJECTS`。
+
+- Star、Fork：GitHub 仓库接口返回的当前数量。
+- 未关闭 Issue/PR：`open_issues_count`，包含未关闭的 Pull Request，并非仅 Issue。
+- Release 附件下载：当前仍存在的所有已发布 Release（含预发布）的附件 `download_count` 之和，不含源码 ZIP/TAR 下载，不是独立用户数；删除附件或 Release 后可能下降。
+- 最新正式版本：按 `published_at` 选最近发布的非草稿、非预发布 Release，不做版本号排序；没有正式 Release 时显示“暂无”。
+- 每个日期保存一份 `snapshots/YYYY-MM-DD.json`，README 括号内比较上次已有快照，没有基准时只显示当前数值。各 API 请求先后执行，非同一瞬间的事务快照。
+
+数据来源：[GitHub 仓库 API](https://docs.github.com/en/rest/repos/repos#get-a-repository)、[Release API](https://docs.github.com/en/rest/releases/releases#list-releases)。不抓取访客、克隆或其他需要跨仓库额外授权的数据。
+
+## 自动执行与可靠性
+
+北京时间（Asia/Shanghai，UTC+8）每天 **00:15** 主任务，**04:35、20:35** 补偿检查；cron 使用 UTC。每天首次成功采集后，用**一次提交**同时保存 JSON 和 README。即使数值没有变化，当天观测仍单独归档。同日后续触发直接跳过，不请求 API，也不新增提交。
+
+API 超时、权限或格式错误会使任务失败，不写入虚构的零值或部分项目快照；下一次检查从远端重试。Release 查询有分页上限，达到上限明确失败。同一工作流串行运行，超时上限 5 分钟；没有 push 触发器，不递归，不无限重试。不回填历史，不修改提交日期。
+
+运行使用内置 `GITHUB_TOKEN`，只声明本仓库的 `contents: write`；目标项目只读，不需要个人 Token 或第三方服务。提交作者为 LittleSixNine，邮箱为 `31497863+LittleSixNine@users.noreply.github.com`，提交进入默认分支。
 
 ## 手动运行、暂停与恢复
 
-打开 [Actions 工作流页面](https://github.com/LittleSixNine/daily-contributions/actions/workflows/daily.yml)。
+打开 [Actions 页面](https://github.com/LittleSixNine/project-observatory/actions/workflows/daily.yml)：
 
-- 测试：点击 **Run workflow**，选择默认分支并运行。同日已经记录时不会增加提交。
+- 手动测试：**Run workflow**，选择默认分支。同日有快照时不会重复生成。
 - 暂停：右上角 **… → Disable workflow**。
-- 恢复：点击 **Enable workflow**；如需立即执行，再点 **Run workflow**。恢复不会补写历史。
-
-也可以使用 GitHub CLI：
+- 恢复：**Enable workflow**；需要立即采集时再点 **Run workflow**。
 
 ```sh
-gh workflow disable daily.yml -R LittleSixNine/daily-contributions
-gh workflow enable daily.yml -R LittleSixNine/daily-contributions
-gh workflow run daily.yml -R LittleSixNine/daily-contributions
+gh workflow disable daily.yml -R LittleSixNine/project-observatory
+gh workflow enable daily.yml -R LittleSixNine/project-observatory
+gh workflow run daily.yml -R LittleSixNine/project-observatory
 ```
 
-## 限制与贡献统计
+GitHub 定时调度可能延迟或漏调度，无法绝对保证每天产生快照；长期无活动可能自动停用定时任务。整天失败会留下日期空缺，不用历史回填掩盖。项目转为私有、改名或被删除时，采集会失败，需调整观测列表。贡献是否展示及何时刷新以 GitHub 统计为准。
 
-仓库是本人所有的公开独立仓库，提交进入默认分支，并使用账号对应的 GitHub noreply 邮箱，满足[官方贡献条件](https://docs.github.com/en/account-and-profile/reference/profile-contributions-reference)。提交时区为北京时间，避免 UTC 日期错位；贡献图可能需要最多 24 小时刷新。
+## 维护与历史
 
-[GitHub 定时任务](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)可能延迟或丢弃，补偿任务也不保证一定运行。整天都失败会留下空缺，系统不会伪造历史来填补。公开仓库 60 天没有活动可能导致定时任务被禁用；正常的每日推送会持续产生活动，但长期故障后应检查工作流状态。账号限制、Actions 政策、分支保护或邮箱/用户名变更也可能影响运行或统计。
+本项目于 2026-11-18 从 `daily-contributions` 自动活动日志改为真实项目数据观测；`activity.log` 为旧版日志，已停止更新，已有提交历史保留。正常自动任务每天最多一次数据提交，部署维护提交另计。
 
-## 本地验证
-
-在仓库根目录运行 `python3 tests/test_activity.py`，测试只在临时仓库内产生提交。
-
-项目入口见 [docs/INDEX.md](docs/INDEX.md)，维护历史见 [docs/DEVLOG.md](docs/DEVLOG.md)。
+本地验证：在仓库根目录执行 `python3 tests/test_activity.py`（隔离仓库和模拟 API，不改真实项目）。脚本与测试沿用原路径，维护入口见 [项目索引](docs/INDEX.md)，变更见 [开发记录](docs/DEVLOG.md)。
