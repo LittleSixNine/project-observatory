@@ -1,9 +1,13 @@
 # 项目索引
 
-- `../README.md`：一行英文项目说明，不由自动任务更新。
-- `../.github/workflows/daily.yml`：定时、手动触发、最小权限及推送。
-- `../scripts/activity.py`：公开项目 API 采集、JSON 快照和每天一次提交；只提交当日 JSON。
-- `../tests/test_activity.py`：分页、统计口径、失败保护和隔离 Git 仓库内的提交验证。
-- `../snapshots/`：按北京时间日期保存的公开项目观测数据，由工作流生成。
-- `../activity.log`：旧版自动活动日志，停止更新并保留历史。
-- `DEVLOG.md`：维护记录。
+通过 GitHub Actions 每日归档五个个人公开项目的指标，数据保存在 `snapshots/YYYY-MM-DD.json`。正常任务每天最多一次数据提交，不更新 README。
+
+- `../README.md`：一行英文项目说明。
+- `../.github/workflows/daily.yml`：北京时间 00:15 主任务、04:35 和 20:35 补偿检查；支持手动运行。
+- `../scripts/activity.py`：项目列表、API 采集、JSON 归档和同日去重。
+- `../tests/test_activity.py`：采集口径、失败保护、每日提交及 README 不变的验证。
+- `../snapshots/`：按日期保存的真实观测数据，不回填历史。
+- `../activity.log`：已停止更新的旧版日志。
+- `DEVLOG.md`：维护与验证记录。
+
+在 Actions 工作流页面使用 **Run workflow** 手动执行、**Disable workflow** 暂停、**Enable workflow** 恢复。本地检查命令：`python3 tests/test_activity.py`。
