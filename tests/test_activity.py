@@ -1,6 +1,5 @@
 """隔离 Git 仓库及模拟 API，验证快照、失败保护和每日单次提交。"""
 
-import copy
 from datetime import datetime
 import importlib.util
 import json
@@ -56,19 +55,6 @@ class CollectionTests(unittest.TestCase):
                 activity.collect_project("owner/repo")
             self.assertEqual(api.call_count, 21)
 
-    def test_deltas(self):
-        project = {"repository": "owner/repo", "stars": 3, "forks": 0,
-                   "open_issues_and_prs": 1, "release_asset_downloads": 10,
-                   "latest_release": {"tag": "v1|<test>"}}
-        previous = {"date": "2000-01-01", "projects": [{**project, "stars": 5}]}
-        current = {"date": "2000-01-03", "observed_at": "time", "projects": [project]}
-        output = activity.render(current, previous)
-        self.assertIn("3 (-2)", output)
-        self.assertIn("0 (+0)", output)
-        self.assertIn("2000-01-01", output)
-        self.assertIn("v1&#124;&lt;test&gt;", output)
-
-
 class RecordingTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -87,6 +73,9 @@ class RecordingTests(unittest.TestCase):
         self.clock = patch.object(activity, "datetime")
         self.now = self.clock.start()
         self.now.now.return_value = datetime(2026, 11, 18, 1, 0, tzinfo=activity.ZONE)
+        self.projects = [{"repository": name, "stars": 1, "forks": 0, "open_issues_and_prs": 0,
+                          "published_release_count": 0, "release_asset_downloads": 0,
+                          "latest_release": None} for name in activity.PROJECTS]
 
     def tearDown(self):
         self.clock.stop()
@@ -98,22 +87,32 @@ class RecordingTests(unittest.TestCase):
         return subprocess.check_output(["git", *args], text=True, stderr=subprocess.STDOUT).strip()
 
     def test_one_commit_and_same_day_noop(self):
-        projects = [{"repository": name, "stars": 1, "forks": 0, "open_issues_and_prs": 0,
-                     "published_release_count": 0, "release_asset_downloads": 0,
-                     "latest_release": None} for name in activity.PROJECTS]
-        with patch.object(activity, "collect_project", side_effect=projects):
+        with patch.object(activity, "collect_project", side_effect=self.projects):
             activity.main()
         snapshot = json.loads(Path("snapshots/2026-11-18.json").read_text())
         self.assertEqual(len(snapshot["projects"]), 5)
         self.assertEqual(self.git("rev-list", "--count", f"{self.head}..HEAD"), "1")
         self.assertEqual(set(self.git("diff", "--name-only", self.head, "HEAD").splitlines()),
-                         {"README.md", "snapshots/2026-11-18.json"})
+                         {"snapshots/2026-11-18.json"})
+        self.assertEqual(Path("README.md").read_text(encoding="utf-8"), README)
         self.assertTrue(self.git("log", "-1", "--format=%aI").endswith("+08:00"))
         head = self.git("rev-parse", "HEAD")
         with patch.object(activity, "collect_project") as collect:
             activity.main()
             collect.assert_not_called()
         self.assertEqual(self.git("rev-parse", "HEAD"), head)
+        self.assertEqual(self.git("status", "--porcelain"), "")
+
+    def test_following_day_keeps_readme_and_archives_again(self):
+        for day in (18, 19):
+            self.now.now.return_value = datetime(2026, 11, day, 1, 0, tzinfo=activity.ZONE)
+            with patch.object(activity, "collect_project", side_effect=self.projects):
+                activity.main()
+            self.assertEqual(Path("README.md").read_text(encoding="utf-8"), README)
+            self.assertEqual(self.git("diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"),
+                             f"snapshots/2026-11-{day}.json")
+        self.assertEqual(self.git("rev-list", "--count", f"{self.head}..HEAD"), "2")
+        self.assertEqual(len(list(Path("snapshots").glob("*.json"))), 2)
         self.assertEqual(self.git("status", "--porcelain"), "")
 
     def test_api_failure_writes_nothing(self):
