@@ -5,7 +5,17 @@
 ## 最新快照
 
 <!-- snapshot:start -->
-部署后由工作流生成首份真实快照。
+观测时间：2026-11-18T01:13:34+08:00（北京时间）。括号为相较上次快照的增减。
+
+| 项目 | Star | Fork | 未关闭 Issue/PR | Release 附件下载 | 最新正式版本 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| [FrameMatter](https://github.com/LittleSixNine/FrameMatter) | 9 | 0 | 0 | 59 | build-3 |
+| [PhotoTrail](https://github.com/LittleSixNine/PhotoTrail) | 55 | 4 | 0 | 142 | v0.5.17 |
+| [FilmLog](https://github.com/LittleSixNine/FilmLog) | 0 | 0 | 0 | 2 | 暂无 |
+| [Pawzz-video-downloader](https://github.com/LittleSixNine/Pawzz-video-downloader) | 0 | 0 | 0 | 5 | 暂无 |
+| [photocut](https://github.com/LittleSixNine/photocut) | 0 | 0 | 0 | 0 | 暂无 |
+
+[查看当日 JSON](snapshots/2026-11-18.json)
 <!-- snapshot:end -->
 
 ## 观测范围与口径
