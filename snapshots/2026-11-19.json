@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-19",
+  "observed_at": "2026-11-19T04:50:52+08:00",
+  "projects": [
+    {
+      "repository": "LittleSixNine/FrameMatter",
+      "stars": 9,
+      "forks": 0,
+      "open_issues_and_prs": 0,
+      "published_release_count": 4,
+      "release_asset_downloads": 66,
+      "latest_release": {
+        "tag": "build-4",
+        "published_at": "2026-11-18T11:05:13Z"
+      }
+    },
+    {
+      "repository": "LittleSixNine/PhotoTrail",
+      "stars": 55,
+      "forks": 4,
+      "open_issues_and_prs": 0,
+      "published_release_count": 31,
+      "release_asset_downloads": 157,
+      "latest_release": {
+        "tag": "v0.5.18",
+        "published_at": "2026-11-18T10:41:26Z"
+      }
+    },
+    {
+      "repository": "LittleSixNine/FilmLog",
+      "stars": 0,
+      "forks": 0,
+      "open_issues_and_prs": 0,
+      "published_release_count": 1,
+      "release_asset_downloads": 2,
+      "latest_release": null
+    },
+    {
+      "repository": "LittleSixNine/Pawzz-video-downloader",
+      "stars": 0,
+      "forks": 0,
+      "open_issues_and_prs": 0,
+      "published_release_count": 1,
+      "release_asset_downloads": 5,
+      "latest_release": null
+    },
+    {
+      "repository": "LittleSixNine/photocut",
+      "stars": 0,
+      "forks": 0,
+      "open_issues_and_prs": 0,
+      "published_release_count": 0,
+      "release_asset_downloads": 0,
+      "latest_release": null
+    }
+  ]
+}
