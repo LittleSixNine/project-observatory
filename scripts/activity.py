@@ -20,12 +20,12 @@ PROJECTS = (
 ZONE = ZoneInfo("Asia/Shanghai")
 
 
-def daily_commit_count():
-    normal = NormalDist(mu=3, sigma=1)
-    counts = range(1, 6)
-    # 截断到 0.5～5.5 后按整数区间取概率，避免越界值堆积在两端。
+def daily_commit_count(day):
+    normal = NormalDist(mu=2.5, sigma=1)
+    counts = range(0, 6)
+    # 日期固定抽样结果，避免 0 次日期在补偿检查时重新抽成正数。
     weights = [normal.cdf(count + 0.5) - normal.cdf(count - 0.5) for count in counts]
-    return random.choices(counts, weights=weights, k=1)[0]
+    return random.Random(f"project-observatory:{day}").choices(counts, weights=weights, k=1)[0]
 
 
 def api(path):
@@ -79,6 +79,10 @@ def main():
     if target.exists():
         print(f"Already recorded {day}; no API requests or commits needed.")
         return
+    count = daily_commit_count(day)
+    if count == 0:
+        print(f"Planned 0 commits for {day}; skip collection and archiving today.")
+        return
     # 所有请求成功后才落盘；API 失败不会用 0 代替缺失值。
     snapshot = {
         "schema_version": 1,
@@ -86,7 +90,6 @@ def main():
         "observed_at": now.isoformat(timespec="seconds"),
         "projects": [collect_project(name) for name in PROJECTS],
     }
-    count = daily_commit_count()
     projects = snapshot["projects"]
     target.parent.mkdir(exist_ok=True)
     for batch in range(1, count + 1):

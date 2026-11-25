@@ -1,11 +1,10 @@
 """隔离 Git 仓库及模拟 API，验证正态随机批次、快照和失败保护。"""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import importlib.util
 import json
 import os
 from pathlib import Path
-import random
 from statistics import mean
 import subprocess
 import tempfile
@@ -26,12 +25,18 @@ def release(tag="v1", count=10, prerelease=False, draft=False, published="2026-1
 
 class DistributionTests(unittest.TestCase):
     def test_truncated_normal_distribution(self):
-        with patch.object(activity.random, "choices", wraps=random.Random(69).choices):
-            samples = [activity.daily_commit_count() for _ in range(20000)]
-        self.assertEqual(set(samples), {1, 2, 3, 4, 5})
-        self.assertAlmostEqual(mean(samples), 3, delta=0.04)
-        for count, expected in enumerate((0.06136, 0.24477, 0.38774, 0.24477, 0.06136), 1):
+        start = datetime(2026, 1, 1)
+        samples = [activity.daily_commit_count((start + timedelta(days=index)).date().isoformat())
+                   for index in range(20000)]
+        self.assertEqual(set(samples), {0, 1, 2, 3, 4, 5})
+        self.assertAlmostEqual(mean(samples), 2.5, delta=0.04)
+        for count, expected in enumerate((0.02146, 0.13627, 0.34227, 0.34227, 0.13627, 0.02146)):
             self.assertAlmostEqual(samples.count(count) / len(samples), expected, delta=0.012)
+
+    def test_same_date_is_repeatable(self):
+        day = "2026-11-25"
+        expected = activity.daily_commit_count(day)
+        self.assertEqual([activity.daily_commit_count(day) for _ in range(10)], [expected] * 10)
 
 
 class CollectionTests(unittest.TestCase):
@@ -136,6 +141,16 @@ class RecordingTests(unittest.TestCase):
                 activity.main()
         self.assertFalse(Path("snapshots").exists())
         self.assertEqual(Path("README.md").read_text(encoding="utf-8"), README)
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.head)
+        self.assertEqual(self.git("status", "--porcelain"), "")
+
+    def test_zero_day_retries_do_not_collect_or_commit(self):
+        self.count.return_value = 0
+        with patch.object(activity, "collect_project") as collect:
+            activity.main()
+            activity.main()
+            collect.assert_not_called()
+        self.assertFalse(Path("snapshots").exists())
         self.assertEqual(self.git("rev-parse", "HEAD"), self.head)
         self.assertEqual(self.git("status", "--porcelain"), "")
 
