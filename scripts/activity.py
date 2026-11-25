@@ -4,6 +4,8 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
+import random
+from statistics import NormalDist
 import subprocess
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
@@ -16,6 +18,14 @@ PROJECTS = (
     "LittleSixNine/photocut",
 )
 ZONE = ZoneInfo("Asia/Shanghai")
+
+
+def daily_commit_count():
+    normal = NormalDist(mu=3, sigma=1)
+    counts = range(1, 6)
+    # 截断到 0.5～5.5 后按整数区间取概率，避免越界值堆积在两端。
+    weights = [normal.cdf(count + 0.5) - normal.cdf(count - 0.5) for count in counts]
+    return random.choices(counts, weights=weights, k=1)[0]
 
 
 def api(path):
@@ -76,13 +86,19 @@ def main():
         "observed_at": now.isoformat(timespec="seconds"),
         "projects": [collect_project(name) for name in PROJECTS],
     }
-    if datetime.now(ZONE).date().isoformat() != day:
-        raise RuntimeError("Date changed during collection; abort without writing or pushing.")
+    count = daily_commit_count()
+    projects = snapshot["projects"]
     target.parent.mkdir(exist_ok=True)
-    target.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    subprocess.run(["git", "add", "--", str(target)], check=True)
-    subprocess.run(["git", "commit", "-m", f"data: snapshot public projects for {day}"], check=True)
-    print(f"Created one snapshot commit for {day}: {len(PROJECTS)} public projects.")
+    for batch in range(1, count + 1):
+        if datetime.now(ZONE).date().isoformat() != day:
+            raise RuntimeError("Date changed during batch; abort without pushing.")
+        snapshot["projects"] = projects[:batch * len(projects) // count]
+        target.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        subprocess.run(["git", "add", "--", str(target)], check=True)
+        subprocess.run([
+            "git", "commit", "-m", f"data: snapshot public projects for {day} ({batch}/{count})"
+        ], check=True)
+    print(f"Created {count} snapshot commits for {day}: {len(projects)} public projects.")
 
 
 if __name__ == "__main__":

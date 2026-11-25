@@ -1,10 +1,12 @@
-"""隔离 Git 仓库及模拟 API，验证快照、失败保护和每日单次提交。"""
+"""隔离 Git 仓库及模拟 API，验证正态随机批次、快照和失败保护。"""
 
 from datetime import datetime
 import importlib.util
 import json
 import os
 from pathlib import Path
+import random
+from statistics import mean
 import subprocess
 import tempfile
 import unittest
@@ -20,6 +22,16 @@ README = (ROOT / "README.md").read_text(encoding="utf-8")
 def release(tag="v1", count=10, prerelease=False, draft=False, published="2026-11-01T00:00:00Z"):
     return {"tag_name": tag, "published_at": published, "draft": draft,
             "prerelease": prerelease, "assets": [{"download_count": count}]}
+
+
+class DistributionTests(unittest.TestCase):
+    def test_truncated_normal_distribution(self):
+        with patch.object(activity.random, "choices", wraps=random.Random(69).choices):
+            samples = [activity.daily_commit_count() for _ in range(20000)]
+        self.assertEqual(set(samples), {1, 2, 3, 4, 5})
+        self.assertAlmostEqual(mean(samples), 3, delta=0.04)
+        for count, expected in enumerate((0.06136, 0.24477, 0.38774, 0.24477, 0.06136), 1):
+            self.assertAlmostEqual(samples.count(count) / len(samples), expected, delta=0.012)
 
 
 class CollectionTests(unittest.TestCase):
@@ -73,11 +85,14 @@ class RecordingTests(unittest.TestCase):
         self.clock = patch.object(activity, "datetime")
         self.now = self.clock.start()
         self.now.now.return_value = datetime(2026, 11, 18, 1, 0, tzinfo=activity.ZONE)
+        self.batch_count = patch.object(activity, "daily_commit_count", return_value=1)
+        self.count = self.batch_count.start()
         self.projects = [{"repository": name, "stars": 1, "forks": 0, "open_issues_and_prs": 0,
                           "published_release_count": 0, "release_asset_downloads": 0,
                           "latest_release": None} for name in activity.PROJECTS]
 
     def tearDown(self):
+        self.batch_count.stop()
         self.clock.stop()
         self.env.stop()
         os.chdir(self.cwd)
@@ -122,6 +137,35 @@ class RecordingTests(unittest.TestCase):
         self.assertFalse(Path("snapshots").exists())
         self.assertEqual(Path("README.md").read_text(encoding="utf-8"), README)
         self.assertEqual(self.git("rev-parse", "HEAD"), self.head)
+        self.assertEqual(self.git("status", "--porcelain"), "")
+
+    def test_all_batch_counts_add_projects_without_empty_commits(self):
+        for count in range(1, 6):
+            with self.subTest(count=count):
+                day = 19 + count
+                self.now.now.return_value = datetime(2026, 11, day, 1, 0, tzinfo=activity.ZONE)
+                self.count.return_value = count
+                before = self.git("rev-parse", "HEAD")
+                with patch.object(activity, "collect_project", side_effect=self.projects) as collect:
+                    activity.main()
+                    self.assertEqual(collect.call_count, 5)
+                target = f"snapshots/2026-11-{day}.json"
+                commits = self.git("rev-list", "--reverse", f"{before}..HEAD").splitlines()
+                self.assertEqual(len(commits), count)
+                previous = []
+                for sha in commits:
+                    self.assertEqual(self.git("diff-tree", "--no-commit-id", "--name-only", "-r", sha), target)
+                    projects = json.loads(self.git("show", f"{sha}:{target}"))["projects"]
+                    self.assertGreater(len(projects), len(previous))
+                    self.assertEqual(projects[:len(previous)], previous)
+                    previous = projects
+                self.assertEqual(previous, self.projects)
+                head = self.git("rev-parse", "HEAD")
+                with patch.object(activity, "collect_project") as collect:
+                    activity.main()
+                    collect.assert_not_called()
+                self.assertEqual(self.git("rev-parse", "HEAD"), head)
+                self.assertEqual(Path("README.md").read_text(encoding="utf-8"), README)
         self.assertEqual(self.git("status", "--porcelain"), "")
 
 
