@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-27",
+  "observed_at": "2026-11-27T05:51:17+08:00",
+  "projects": [
+    {
+      "repository": "LittleSixNine/FrameMatter",
+      "stars": 9,
+      "forks": 1,
+      "open_issues_and_prs": 0,
+      "published_release_count": 4,
+      "release_asset_downloads": 76,
+      "latest_release": {
+        "tag": "build-4",
+        "published_at": "2026-11-18T11:05:13Z"
+      }
+    }
+  ]
+}
